@@ -45,9 +45,8 @@ thiserror = "1.0"
 anyhow = { version = "1.0", optional = true }  # Make optional since it's only used in some places
 rayon = { version = "1.8", optional = true }
 clap = { version = "4.0", features = ["derive", "env", "wrap_help"], optional = true }
-
+chrono = { version = "0.4", features = ["serde"] }  # For timestamping discovery results
 # Optional dependencies for enhanced functionality
-chrono = { version = "0.4", optional = true, features = ["serde"] }  # For timestamping discovery results
 log = { version = "0.4", optional = true }  # For structured logging
 env_logger = { version = "0.11", optional = true }  # For CLI logging
 indicatif = { version = "0.17", optional = true }  # For progress bars in CLI
@@ -58,7 +57,7 @@ tempfile = "3.10"
 criterion = "0.5"  # For benchmarking
 pretty_assertions = "1.4"  # For better test output
 rstest = "0.18"  # For parameterized tests
-mockall = "0.12"  # For mocking in tests
+mockall = "0.14.0"  # For mocking in tests
 serial_test = "3.0"  # For serializing tests that access hardware
 
 [[bin]]
