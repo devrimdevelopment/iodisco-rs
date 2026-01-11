@@ -114,19 +114,29 @@ fn try_profile(device_path: &str, profile: &crate::profiles::IoctlProfile) -> Op
         let cmd = ioctl_def.cmd;
         let result = discovery.test_single_ioctl(cmd);
 
-        working_ioctls.push(DetectedIoctl {
-            name: ioctl_def.name.clone(),
-            cmd,
-            works: result.is_success(),
-            returns_data: result.returns_data,
-            errno: if result.errno != 0 { Some(result.errno) } else { None },
-            return_value: Some(result.result),
-        });
+        // Handle the Result properly
+        match result {
+            Ok(test_result) => {
+                working_ioctls.push(DetectedIoctl {
+                    name: ioctl_def.name.clone(),
+                    cmd,
+                    works: test_result.is_success(),
+                    returns_data: test_result.returns_data,
+                    errno: if test_result.errno != 0 { Some(test_result.errno) } else { None },
+                    return_value: Some(test_result.result),
+                });
 
-        // Robust detection: Check if IOCTL exists (not necessarily works)
-        if !result.exists() {
-            all_signatures_match = false;
-            break;
+                // Robust detection: Check if IOCTL exists (not necessarily works)
+                if !test_result.exists() {
+                    all_signatures_match = false;
+                    break;
+                }
+            }
+            Err(_) => {
+                // IOCTL failed to execute
+                all_signatures_match = false;
+                break;
+            }
         }
     }
 
@@ -208,79 +218,100 @@ fn try_profile(device_path: &str, profile: &crate::profiles::IoctlProfile) -> Op
 
     // Try to get version information if defined in profile
     if let Some(version_ioctl) = &profile.version_ioctl {
-        let result = discovery.test_single_ioctl(version_ioctl.cmd);
-        if result.exists() {
-            // Try to execute with buffer
-            if let Ok(version_data) = discovery.execute_ioctl(version_ioctl.cmd, version_ioctl.buffer_size as usize) {
-                let version_info = parse_version(&version_data, &version_ioctl.parser, result.result);
-                if let Some(version_str) = version_info {
-                    gpu_info.driver_version = Some(version_str);
+        match discovery.test_single_ioctl(version_ioctl.cmd) {
+            Ok(result) => {
+                if result.exists() {
+                    // Try to execute with buffer
+                    match discovery.execute_ioctl(version_ioctl.cmd, version_ioctl.buffer_size as usize) {
+                        Ok(version_data) => {
+                            let version_info = parse_version(&version_data, &version_ioctl.parser, result.result);
+                            if let Some(version_str) = version_info {
+                                gpu_info.driver_version = Some(version_str);
+                            }
+                        }
+                        Err(_) => {
+                            // Failed to execute with buffer, but IOCTL exists
+                        }
+                    }
                 }
+            }
+            Err(_) => {
+                // Version IOCTL failed
             }
         }
     }
 
     // Try to get GPU ID for hardware mapping
     if let Some(info_ioctl) = &profile.gpu_info_ioctl {
-        if let Ok(gpu_data) = discovery.execute_ioctl(info_ioctl.cmd, info_ioctl.buffer_size as usize) {
-            if let Some(gpu_id) = extract_gpu_id(&gpu_data, &info_ioctl.parser) {
-                gpu_info.gpu_id = Some(gpu_id);
+        match discovery.execute_ioctl(info_ioctl.cmd, info_ioctl.buffer_size as usize) {
+            Ok(gpu_data) => {
+                if let Some(gpu_id) = extract_gpu_id(&gpu_data, &info_ioctl.parser) {
+                    gpu_info.gpu_id = Some(gpu_id);
 
-                // Use hardware database to get more details
-                match profile.vendor.as_str() {
-                    "Mali" => {
-                        if let Some(model_info) = identify_mali_gpu(gpu_id) {
-                            gpu_info.architecture = Some(model_info.architecture.to_string());
+                    // Use hardware database to get more details
+                    match profile.vendor.as_str() {
+                        "Mali" => {
+                            if let Some(model_info) = identify_mali_gpu(gpu_id) {
+                                gpu_info.architecture = Some(model_info.architecture.to_string());
 
-                            // Override model name from mapping if available
-                            if model_info.name != "Unknown" {
+                                // Override model name from mapping if available
+                                if model_info.name != "Unknown" {
+                                    gpu_info.model = model_info.name.to_string();
+                                }
+
+                                // Override cores from model if not set
+                                if gpu_info.cores.is_none() {
+                                    gpu_info.cores = Some(model_info.min_cores);
+                                }
+
+                                // Add performance specs from model (only if not already set by profile)
+                                if gpu_info.engines_per_core.is_none() {
+                                    gpu_info.engines_per_core = Some(model_info.execution_engines);
+                                }
+                                if gpu_info.fp32_fmas_per_core.is_none() {
+                                    gpu_info.fp32_fmas_per_core = Some(model_info.fma_per_engine as u16);
+                                }
+                                if gpu_info.texels_per_core.is_none() {
+                                    gpu_info.texels_per_core = Some(model_info.texels_per_cycle as u16);
+                                }
+                                if gpu_info.pixels_per_core.is_none() {
+                                    gpu_info.pixels_per_core = Some(model_info.pixels_per_cycle as u16);
+                                }
+
+                                // Estimate FP16 (usually 2x FP32 for Mali)
+                                if gpu_info.fp16_fmas_per_core.is_none() {
+                                    gpu_info.fp16_fmas_per_core = Some((model_info.fma_per_engine * 2) as u16);
+                                }
+                            }
+                        }
+                        "Adreno" => {
+                            if let Some(model_info) = identify_adreno_gpu(&gpu_data) {
+                                gpu_info.architecture = Some(model_info.architecture.to_string());
+
+                                // Override model name from mapping
                                 gpu_info.model = model_info.name.to_string();
                             }
-
-                            // Override cores from model if not set
-                            if gpu_info.cores.is_none() {
-                                gpu_info.cores = Some(model_info.min_cores);
-                            }
-
-                            // Add performance specs from model (only if not already set by profile)
-                            if gpu_info.engines_per_core.is_none() {
-                                gpu_info.engines_per_core = Some(model_info.execution_engines);
-                            }
-                            if gpu_info.fp32_fmas_per_core.is_none() {
-                                gpu_info.fp32_fmas_per_core = Some(model_info.fma_per_engine as u16);
-                            }
-                            if gpu_info.texels_per_core.is_none() {
-                                gpu_info.texels_per_core = Some(model_info.texels_per_cycle as u16);
-                            }
-                            if gpu_info.pixels_per_core.is_none() {
-                                gpu_info.pixels_per_core = Some(model_info.pixels_per_cycle as u16);
-                            }
-
-                            // Estimate FP16 (usually 2x FP32 for Mali)
-                            if gpu_info.fp16_fmas_per_core.is_none() {
-                                gpu_info.fp16_fmas_per_core = Some((model_info.fma_per_engine * 2) as u16);
-                            }
                         }
+                        _ => {}
                     }
-                    "Adreno" => {
-                        if let Some(model_info) = identify_adreno_gpu(&gpu_data) {
-                            gpu_info.architecture = Some(model_info.architecture.to_string());
-
-                            // Override model name from mapping
-                            gpu_info.model = model_info.name.to_string();
-                        }
-                    }
-                    _ => {}
                 }
+            }
+            Err(_) => {
+                // Failed to get GPU info
             }
         }
     }
 
     // Try to get feature/property information
     if let Some(features_ioctl) = &profile.features_ioctl {
-        if let Ok(features_data) = discovery.execute_ioctl(features_ioctl.cmd, features_ioctl.buffer_size as usize) {
-            let features = parse_features(&features_data, &features_ioctl.parser);
-            gpu_info.features = features;
+        match discovery.execute_ioctl(features_ioctl.cmd, features_ioctl.buffer_size as usize) {
+            Ok(features_data) => {
+                let features = parse_features(&features_data, &features_ioctl.parser);
+                gpu_info.features = features;
+            }
+            Err(_) => {
+                // Failed to get features
+            }
         }
     }
 
@@ -467,7 +498,7 @@ mod tests {
         assert_eq!(result, Some(0x0000c000));
 
         let data = [0x21, 0x00, 0x00, 0x00]; // ID: 0x21
-
-
-        }
+        let result = extract_gpu_id(&data, "parse_gpu_id_u32");
+        assert_eq!(result, Some(0x21));
+    }
 }

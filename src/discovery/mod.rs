@@ -13,6 +13,7 @@ use std::io;
 ///
 /// # Arguments
 /// * `device_path` - Optional device path. If None, auto-detects.
+/// * `config` - Optional discovery configuration
 ///
 /// # Returns
 /// Discovery result containing all found IOCTLs
@@ -26,13 +27,18 @@ pub fn scan_device(device_path: Option<&str>, config: Option<DiscoveryConfig>) -
     };
 
     let options = config.unwrap_or_default();
+    
+    // Clone verbosity before moving options
+    let verbosity = options.verbosity;
+    
     let mut discovery = IoctlDiscovery::open(&device, options.into())?;
 
     // Scan common Mali types
     let types_to_scan = vec![0x80u8, 0x64, 0x46, 0x4B, 0x54, 0x6D];
     for ty in types_to_scan {
         if let Err(e) = discovery.scan_type(ty) {
-            if options.verbosity.is_at_least(Verbosity::Normal) {
+            // Use the cloned verbosity
+            if verbosity.is_at_least(Verbosity::Normal) {
                 eprintln!("Warning: Failed to scan type 0x{:02x}: {}", ty, e);
             }
             // Continue with next type
@@ -241,7 +247,7 @@ impl Into<DiscoveryOptions> for DiscoveryConfig {
 }
 
 /// Verbosity level for output
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]  // Added Serialize, Deserialize
 pub enum Verbosity {
     /// Minimal output - only summary
     Minimal,

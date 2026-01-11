@@ -9,7 +9,6 @@ use std::time::{Duration, Instant};
 use std::sync::atomic::{AtomicU32, Ordering};
 use serde::{Serialize, Deserialize};
 use crate::discovery::Verbosity;
-use chrono;
 
 /// IOCTL discovery scanner with built-in safety mechanisms
 pub struct IoctlDiscovery {
@@ -23,7 +22,7 @@ pub struct IoctlDiscovery {
 }
 
 /// Configuration options for the discovery process
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]  // Added Serialize and Deserialize
 pub struct DiscoveryOptions {
     /// Verbosity level for output
     pub verbosity: Verbosity,
@@ -85,39 +84,57 @@ impl Default for DiscoveryOptions {
 }
 
 impl DiscoveryOptions {
-    /// Validate configuration options
-    pub fn validate(&self) -> Result<(), String> {
+    /// Validate configuration options - returns io::Result instead of Result<(), String>
+    pub fn validate(&self) -> io::Result<()> {
         // Check for conflicting options
         if self.allow_types.is_some() && !self.deny_types.is_empty() {
-            return Err("Cannot specify both allow_types and deny_types - use one or the other".to_string());
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Cannot specify both allow_types and deny_types - use one or the other"
+            ));
         }
         
         // Validate size discovery safety
         if self.try_find_size && !self.warn_only_on_dangerous {
-            return Err("try_find_size requires warn_only_on_dangerous=true for safety".to_string());
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "try_find_size requires warn_only_on_dangerous=true for safety"
+            ));
         }
         
         // Validate max_results
         if self.max_results == 0 {
-            return Err("max_results must be at least 1".to_string());
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "max_results must be at least 1"
+            ));
         }
         
         // Validate rate limiting
         if let Some(max_calls) = self.max_calls_per_second {
             if max_calls == 0 {
-                return Err("max_calls_per_second must be at least 1".to_string());
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "max_calls_per_second must be at least 1"
+                ));
             }
         }
         
         if let Some(max_total) = self.max_total_calls {
             if max_total == 0 {
-                return Err("max_total_calls must be at least 1".to_string());
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "max_total_calls must be at least 1"
+                ));
             }
         }
         
         // Validate size discovery attempts
         if self.max_size_discovery_attempts == 0 {
-            return Err("max_size_discovery_attempts must be at least 1".to_string());
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "max_size_discovery_attempts must be at least 1"
+            ));
         }
         
         Ok(())
@@ -309,7 +326,7 @@ impl IoctlDiscovery {
     }
 
     /// Validate configuration
-    pub fn validate_configuration(&self) -> Result<(), String> {
+    pub fn validate_configuration(&self) -> io::Result<()> {
         self.options.validate()
     }
 
@@ -751,7 +768,7 @@ impl IoctlDiscovery {
         struct JsonMetadata {
             timestamp: String,
             iodisco_version: &'static str,
-            options: DiscoveryOptions,
+            options: serde_json::Value,  // Use JSON value instead of DiscoveryOptions
         }
         
         let not_existent = self.results.iter()
@@ -766,6 +783,10 @@ impl IoctlDiscovery {
             .filter(|r| matches!(&r.interpretation, Interpretation::Success))
             .count();
         
+        // Convert options to JSON value
+        let options_json = serde_json::to_value(&self.options)
+            .unwrap_or_else(|_| serde_json::Value::Null);
+        
         let output = JsonOutput {
             results: self.results.clone(),
             statistics: JsonStatistics {
@@ -778,7 +799,7 @@ impl IoctlDiscovery {
             metadata: JsonMetadata {
                 timestamp: chrono::Local::now().to_rfc3339(),
                 iodisco_version: crate::VERSION,
-                options: self.options.clone(),
+                options: options_json,
             },
         };
         
@@ -933,3 +954,6 @@ impl Drop for IoctlDiscovery {
         self.close();
     }
 }
+
+// Add Serialize and Deserialize for Verbosity if not already defined
+// (You might need to add these to the Verbosity enum definition in mod.rs)
