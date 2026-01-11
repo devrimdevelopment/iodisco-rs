@@ -1,7 +1,0 @@
-[package]
-name = "gpuinfo"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-iodisco = { path = "..", default-features = false, features = ["api-only"] }
