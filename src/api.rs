@@ -103,7 +103,7 @@ pub fn get_gpu_info_with_device(device_path: Option<&str>) -> Result<GpuInfo, Gp
 /// Try to match a device against a profile
 fn try_profile(device_path: &str, profile: &crate::profiles::IoctlProfile) -> Option<GpuInfo> {
     // Open device with quick options (no full discovery)
-    let discovery = IoctlDiscovery::open(device_path, DiscoveryConfig::quick().into())
+    let mut discovery = IoctlDiscovery::open(device_path, DiscoveryConfig::quick().into())
         .ok()?;
 
     // Test signature IOCTLs from profile
