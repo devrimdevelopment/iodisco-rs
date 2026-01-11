@@ -11,14 +11,20 @@
       "components": "rust-analyzer,rust-src,rustfmt,clippy" 
     }
   },
-  "customizations": {
-    "vscode": {
-      "extensions": [
-        "rust-lang.rust-analyzer",
-        "tamasfe.even-better-toml",
-        "serayuzgur.crates"
+"customizations": {
+  "vscode": {
+    "settings": {
+      "rust-analyzer.linkedProjects": [
+        "./iodisco-bin/Cargo.toml",
+        "./Cargo.toml"
       ]
-    }
-  },
+    },
+    "extensions": [
+      "rust-lang.rust-analyzer",
+      "tamasfe.even-better-toml",
+      "serayuzgur.crates"
+    ]
+  }
+},
   "postCreateCommand": "cargo --version"
 }
