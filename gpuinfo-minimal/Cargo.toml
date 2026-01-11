@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 [[bin]]
 name = "gpuinfo-minimal"
-path = "gpuinfo-minimal/src/main.rs"
+path = "src/main.rs"
 default-features = false
 
 [dependencies]
