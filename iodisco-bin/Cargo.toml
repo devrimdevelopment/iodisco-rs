@@ -1,7 +1,9 @@
 [package]
-name = "iodisco-bin"
+name = "iodisco-cli"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-iodisco = { path = ".." }
+iodisco = { path = "..", features = ["full"] }
+clap = { version = "4.0", features = ["derive", "env"] }
+anyhow = "1.0"

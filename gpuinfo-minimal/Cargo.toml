@@ -1,11 +1,7 @@
 [package]
-name = "gpuinfo-minimal"
+name = "gpuinfo"
 version = "0.1.0"
 edition = "2021"
-[[bin]]
-name = "gpuinfo-minimal"
-path = "src/main.rs"
-default-features = false
 
 [dependencies]
-iodisco = { path = "..", default-features = false, features = ["mali"] }
+iodisco = { path = "..", default-features = false, features = ["api-only"] }

@@ -19,123 +19,119 @@ keywords = [
     "hardware",
 ]
 categories = ["hardware-support", "os", "embedded"]
-rust-version = "1.70" # Specify minimum Rust version
+rust-version = "1.70"
 
-# Add metadata for crates.io
 [package.metadata.docs.rs]
 features = ["mali", "adreno", "discovery"]
 rustdoc-args = ["--cfg", "docsrs"]
 all-features = true
 
-# Add metadata for cargo build
-[package.metadata.cargo-fmt]
-command = "cargo fmt --all"
-
 [features]
-default = ["mali", "adreno", "discovery"]
-mali = []                                     # Enable ARM Mali support
-adreno = []                                   # Enable Qualcomm Adreno support
-discovery = ["rayon"]                         # Enable advanced discovery features
-cli = ["clap"]                                # Enable CLI tool features
-full = ["mali", "adreno", "discovery", "cli"] # All features for testing
-
-# Security features
-safe-scan = [] # Enable additional safety checks during scanning
-sandbox = []   # Enable sandboxed scanning (future feature)
+default = ["mali", "adreno"]
+api-only = []                          # Minimal: no IOCTL scanning, just profile matching
+mali = []                              # ARM Mali support
+adreno = []                            # Qualcomm Adreno support
+discovery = ["libc", "chrono"]         # IOCTL discovery engine (needs libc)
+full = ["mali", "adreno", "discovery"]
 
 # Platform-specific optimizations
-linux = []   # Linux-specific optimizations
-android = [] # Android-specific adaptations
+linux = []
+android = []
 
 [dependencies]
-libc = { version = "0.2", default-features = false } # Disable default features for embedded
-serde = { version = "1.0", features = ["derive"], optional = false }
-serde_json = { version = "1.0", optional = false }
+# Core dependencies (ALWAYS required for basic API)
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 thiserror = "1.0"
-anyhow = { version = "1.0", optional = true } # Make optional since it's only used in some places
+
+# Optional dependencies (feature-gated)
+libc = { version = "0.2", optional = true, default-features = false }
+chrono = { version = "0.4", optional = true, features = ["serde"] }
+anyhow = { version = "1.0", optional = true }
 rayon = { version = "1.8", optional = true }
-clap = { version = "4.0", features = [
+clap = { version = "4.0", optional = true, features = [
     "derive",
     "env",
     "wrap_help",
-], optional = true }
-chrono = { version = "0.4", features = [
-    "serde",
-] } # For timestamping discovery results
-# Optional dependencies for enhanced functionality
-log = { version = "0.4", optional = true }         # For structured logging
-env_logger = { version = "0.11", optional = true } # For CLI logging
-indicatif = { version = "0.17", optional = true }  # For progress bars in CLI
-bytes = { version = "1.5", optional = true }       # For efficient byte manipulation
+] }
+log = { version = "0.4", optional = true }
+env_logger = { version = "0.11", optional = true }
+indicatif = { version = "0.17", optional = true }
+bytes = { version = "1.5", optional = true }
 
 [dev-dependencies]
 tempfile = "3.10"
-criterion = "0.5"         # For benchmarking
-pretty_assertions = "1.4" # For better test output
-rstest = "0.18"           # For parameterized tests
-mockall = "0.14.0"        # For mocking in tests
-serial_test = "3.0"       # For serializing tests that access hardware
+criterion = "0.5"
+pretty_assertions = "1.4"
+rstest = "0.18"
+mockall = "0.14.0"
+serial_test = "3.0"
 
-[[bin]]
-name = "iodisco-bin"
-path = "iodisco-bin/src/main.rs"
-required-features = ["cli"]
-# Add more example configurations
+# Examples
 [[example]]
 name = "simple_info"
 path = "examples/simple_info.rs"
+required-features = ["mali"]
 
 [[example]]
 name = "advanced_discovery"
 path = "examples/advanced_discovery.rs"
+required-features = ["discovery"]
 
 [[example]]
 name = "test_ioctls"
 path = "examples/test_ioctls.rs"
+required-features = ["discovery"]
 
 [[example]]
 name = "libgpuinfo_ioctls"
 path = "examples/libgpuinfo_ioctls.rs"
+required-features = ["discovery"]
 
 [[example]]
 name = "debug_device"
 path = "examples/debug_device.rs"
+required-features = ["discovery"]
 
 [[example]]
 name = "test_new_ioctls"
 path = "examples/test_new_ioctls.rs"
+required-features = ["discovery"]
 
 [[example]]
 name = "test_version_magic"
 path = "examples/test_version_magic.rs"
+required-features = ["discovery"]
 
 [[example]]
 name = "debug_profile_match"
 path = "examples/debug_profile_match.rs"
+required-features = ["discovery"]
 
 [[example]]
 name = "embedded_minimal"
 path = "examples/embedded_minimal.rs"
-required-features = ["mali"]          # Example for embedded with minimal features
+required-features = ["mali"]
 
 [[example]]
-name = "android_usage"
-path = "examples/android_usage.rs"
-required-features = ["adreno", "android"]
+name = "api_only_example"
+path = "examples/api_only_example.rs"
+required-features = ["api-only"]
 
-# Add bench configurations
+# Benchmarks
 [[bench]]
 name = "discovery_benchmark"
 path = "benches/discovery_benchmark.rs"
 harness = false
+required-features = ["discovery"]
 
-# Add test configurations
+# Tests
 [[test]]
 name = "integration"
 path = "tests/integration.rs"
 harness = true
 
-# Profile configurations for different use cases
+# Profiles
 [profile.dev]
 opt-level = 0
 debug = true
@@ -144,37 +140,25 @@ overflow-checks = true
 
 [profile.release]
 opt-level = 3
-lto = "fat"       # Use fat LTO for maximum optimization
-codegen-units = 1 # Single codegen unit for better optimization
-panic = "abort"   # Abort on panic for smaller binaries
-strip = true      # Strip symbols for smaller binaries
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
 
-# Profile for embedded (size-optimized)
 [profile.embedded]
 inherits = "release"
-opt-level = "z"      # Optimize for size
+opt-level = "z"
 lto = true
 codegen-units = 1
 panic = "abort"
 strip = true
 
-# Profile for minimal library (no CLI)
 [profile.minimal]
 inherits = "release"
-opt-level = "s"      # Optimize for size
+opt-level = "s"
 lto = "thin"
-codegen-units = 16   # Parallel compilation
-strip = "debuginfo"  # Keep only minimal symbols
+codegen-units = 16
+strip = "debuginfo"
 
-# Badges for README (optional but nice)
 [badges]
 maintenance = { status = "actively-developed" }
-github-actions = { repository = "devrimdevelopment/iodisco", workflow = "CI" }
-
-# Workspace configuration (if you plan to expand)
-[workspace]
-members = [
-    "iodisco-bin",
-    "gpuinfo-minimal", # Add this
-]
-default-members = ["gpuinfo-minimal"]

@@ -30,16 +30,29 @@
 #![warn(rustdoc::missing_crate_level_docs)]
 
 pub mod api;
-pub mod discovery;
 pub mod error;
-pub mod profiles;
+
+// Optional modules (feature-gated)
+#[cfg(any(feature = "mali", feature = "adreno"))]
 pub mod mappings;
+
+#[cfg(any(feature = "mali", feature = "adreno"))]
+pub mod profiles;
+
+#[cfg(feature = "discovery")]
+pub mod discovery;
 
 // Re-export main API for easy access
 pub use api::{get_gpu_info, get_gpu_info_with_device, GpuInfo, GpuInfoError};
-pub use discovery::{scan_device, DiscoveryConfig, DiscoveryResult};
 pub use error::DiscoveryError;
+
+#[cfg(feature = "discovery")]
+pub use discovery::{scan_device, DiscoveryConfig, DiscoveryResult};
+
+#[cfg(any(feature = "mali", feature = "adreno"))]
 pub use mappings::{identify_mali_gpu, identify_adreno_gpu, GpuVendor};
+
+#[cfg(any(feature = "mali", feature = "adreno"))]
 pub use profiles::{load_mali_profiles, load_adreno_profiles, IoctlProfile};
 
 /// Library version
@@ -97,8 +110,17 @@ pub fn init() {
 ///     println!("Found GPU device: {}", device);
 /// }
 /// ```
+#[cfg(feature = "discovery")]
 pub fn scan_devices() -> Vec<String> {
     discovery::find_gpu_devices()
+}
+
+/// Scan for available GPU devices on the system
+///
+/// Returns an empty vector when discovery feature is disabled.
+#[cfg(not(feature = "discovery"))]
+pub fn scan_devices() -> Vec<String> {
+    vec![]
 }
 
 /// Run a quick compatibility check
@@ -117,7 +139,14 @@ pub fn scan_devices() -> Vec<String> {
 /// }
 /// ```
 pub fn is_supported() -> bool {
-    !scan_devices().is_empty()
+    #[cfg(any(feature = "mali", feature = "adreno"))]
+    {
+        !scan_devices().is_empty()
+    }
+    #[cfg(not(any(feature = "mali", feature = "adreno")))]
+    {
+        false
+    }
 }
 
 /// Get library information
@@ -175,7 +204,11 @@ mod tests {
 /// ```
 pub mod prelude {
     pub use crate::api::{get_gpu_info, get_gpu_info_with_device, GpuInfo, GpuInfoError};
-    pub use crate::discovery::{scan_device, DiscoveryConfig, DiscoveryResult};
-    pub use crate::mappings::{identify_adreno_gpu, identify_mali_gpu, GpuVendor};
     pub use crate::{init, is_supported, scan_devices, version};
+    
+    #[cfg(feature = "discovery")]
+    pub use crate::discovery::{scan_device, DiscoveryConfig, DiscoveryResult};
+    
+    #[cfg(any(feature = "mali", feature = "adreno"))]
+    pub use crate::mappings::{identify_adreno_gpu, identify_mali_gpu, GpuVendor};
 }
