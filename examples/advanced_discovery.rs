@@ -22,7 +22,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Run discovery on first device
     println!("\nRunning discovery on {}...", devices[0]);
-    let result = discovery::scan_device(Some(&devices[0]))?;
+    
+    // FIX: Add the config parameter (use None for defaults)
+    let result = discovery::scan_device(Some(&devices[0]), None)?;
 
     // Print results
     result.print_results();
