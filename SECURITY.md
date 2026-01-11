@@ -1,9 +1,7 @@
-# Security Considerations
+iodisco performs primarily read-only operations on GPU drivers in minimal-safe mode:
+- Does not write GPU registers or modify persistent hardware state.
+- Queries only identification and capability information.
+- Requires membership in video/render group; root is not needed.
+- Uses Rust abstractions to reduce memory safety risks.
 
-iodisco performs read-only operations on kernel drivers:
-- No writes to GPU control registers
-- Only queries hardware identification data
-- Requires video/render group membership, not root
-- Uses safe Rust abstractions over raw ioctls
-
-Use in production systems with caution and test on your specific hardware.
+⚠️ WARNING: Experimental/professional modes may execute IOCTLs that could alter hardware state or trigger driver behavior. Use in production systems with caution and test on your specific hardware.
