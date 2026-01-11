@@ -2,10 +2,10 @@
 name = "gpuinfo-minimal"
 version = "0.1.0"
 edition = "2021"
-
 [[bin]]
-name = "gpuinfo"
-path = "src/main.rs"
+name = "gpuinfo-minimal"
+path = "gpuinfo-minimal/src/main.rs"
+default-features = false
 
 [dependencies]
-iodisco = { path = "../iodisco", default-features = false, features = ["mali"] }
+iodisco = { path = "..", default-features = false, features = ["mali"] }

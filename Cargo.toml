@@ -80,7 +80,6 @@ serial_test = "3.0"       # For serializing tests that access hardware
 name = "iodisco-bin"
 path = "iodisco-bin/src/main.rs"
 required-features = ["cli"]
-
 # Add more example configurations
 [[example]]
 name = "simple_info"
@@ -178,3 +177,4 @@ members = [
     "iodisco-bin",
     "gpuinfo-minimal", # Add this
 ]
+default-members = ["gpuinfo-minimal"]
