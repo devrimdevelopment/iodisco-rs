@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-iodisco = { path = "../iodisco", default-features = false, features = [
+iodisco = { path = "..", default-features = false, features = [
     "api-only",
     "mali",
 ] }

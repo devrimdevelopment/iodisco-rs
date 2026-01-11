@@ -1,7 +1,7 @@
 //! High-level API for GPU information retrieval
 
 use crate::error::DiscoveryError;
-use serde::{Deserialize, Serialize};
+use serde::{Serialize, Deserialize};
 use std::io;
 
 pub type GpuInfoError = DiscoveryError;
@@ -83,27 +83,28 @@ pub fn get_gpu_info_with_device(device_path: Option<&str>) -> Result<GpuInfo, Gp
     {
         return Err(GpuInfoError::NoProfile);
     }
-
+    
     #[cfg(any(feature = "mali", feature = "adreno"))]
     {
         // Check if discovery feature is enabled
         #[cfg(not(feature = "discovery"))]
         {
             return Err(GpuInfoError::Discovery(
-                "IOCTL discovery requires the 'discovery' feature to be enabled".to_string(),
+                "IOCTL discovery requires the 'discovery' feature to be enabled".to_string()
             ));
         }
-
+        
         #[cfg(feature = "discovery")]
         {
-            use crate::discovery::{DiscoveryConfig, IoctlDiscovery};
-            use crate::profiles::{load_adreno_profiles, load_mali_profiles};
-
+            use crate::profiles::{load_mali_profiles, load_adreno_profiles};
+            use crate::discovery::{IoctlDiscovery, DiscoveryConfig};
+            
             // 1. Find or use specified device
             let device = if let Some(path) = device_path {
                 path.to_string()
             } else {
-                crate::discovery::find_gpu_device().ok_or(GpuInfoError::NoDevice)?
+                crate::discovery::find_gpu_device()
+                    .ok_or(GpuInfoError::NoDevice)?
             };
 
             // 2. Load all available profiles
@@ -129,12 +130,12 @@ pub fn get_gpu_info_with_device(device_path: Option<&str>) -> Result<GpuInfo, Gp
 /// that need basic GPU identification.
 #[cfg(any(feature = "mali", feature = "adreno"))]
 pub fn get_gpu_info_static() -> Result<GpuInfo, GpuInfoError> {
-    use crate::profiles::{load_adreno_profiles, load_mali_profiles};
-
+    use crate::profiles::{load_mali_profiles, load_adreno_profiles};
+    
     // Load all profiles
     let mut all_profiles = load_mali_profiles();
     all_profiles.extend(load_adreno_profiles());
-
+    
     // Return the first profile as a best guess
     if let Some(profile) = all_profiles.first() {
         Ok(create_gpu_info_from_profile(profile))
@@ -154,9 +155,10 @@ pub fn get_gpu_info_static() -> Result<GpuInfo, GpuInfoError> {
 /// Try to match a device against a profile (requires discovery feature)
 #[cfg(all(any(feature = "mali", feature = "adreno"), feature = "discovery"))]
 fn try_profile(device_path: &str, profile: &crate::profiles::IoctlProfile) -> Option<GpuInfo> {
-    use crate::discovery::{DiscoveryConfig, IoctlDiscovery};
-
-    let mut discovery = IoctlDiscovery::open(device_path, DiscoveryConfig::quick().into()).ok()?;
+    use crate::discovery::{IoctlDiscovery, DiscoveryConfig};
+    
+    let mut discovery = IoctlDiscovery::open(device_path, DiscoveryConfig::quick().into())
+        .ok()?;
 
     // Test signature IOCTLs from profile
     let mut working_ioctls = Vec::new();
@@ -174,11 +176,7 @@ fn try_profile(device_path: &str, profile: &crate::profiles::IoctlProfile) -> Op
                     cmd,
                     works: test_result.is_success(),
                     returns_data: test_result.returns_data,
-                    errno: if test_result.errno != 0 {
-                        Some(test_result.errno)
-                    } else {
-                        None
-                    },
+                    errno: if test_result.errno != 0 { Some(test_result.errno) } else { None },
                     return_value: Some(test_result.result),
                 });
 
@@ -210,12 +208,9 @@ fn try_profile(device_path: &str, profile: &crate::profiles::IoctlProfile) -> Op
             Ok(result) => {
                 if result.exists() {
                     // Try to execute with buffer
-                    match discovery
-                        .execute_ioctl(version_ioctl.cmd, version_ioctl.buffer_size as usize)
-                    {
+                    match discovery.execute_ioctl(version_ioctl.cmd, version_ioctl.buffer_size as usize) {
                         Ok(version_data) => {
-                            let version_info =
-                                parse_version(&version_data, &version_ioctl.parser, result.result);
+                            let version_info = parse_version(&version_data, &version_ioctl.parser, result.result);
                             if let Some(version_str) = version_info {
                                 gpu_info.driver_version = Some(version_str);
                             }
@@ -260,29 +255,23 @@ fn try_profile(device_path: &str, profile: &crate::profiles::IoctlProfile) -> Op
                                     gpu_info.engines_per_core = Some(model_info.execution_engines);
                                 }
                                 if gpu_info.fp32_fmas_per_core.is_none() {
-                                    gpu_info.fp32_fmas_per_core =
-                                        Some(model_info.fma_per_engine as u16);
+                                    gpu_info.fp32_fmas_per_core = Some(model_info.fma_per_engine as u16);
                                 }
                                 if gpu_info.texels_per_core.is_none() {
-                                    gpu_info.texels_per_core =
-                                        Some(model_info.texels_per_cycle as u16);
+                                    gpu_info.texels_per_core = Some(model_info.texels_per_cycle as u16);
                                 }
                                 if gpu_info.pixels_per_core.is_none() {
-                                    gpu_info.pixels_per_core =
-                                        Some(model_info.pixels_per_cycle as u16);
+                                    gpu_info.pixels_per_core = Some(model_info.pixels_per_cycle as u16);
                                 }
 
                                 // Estimate FP16 (usually 2x FP32 for Mali)
                                 if gpu_info.fp16_fmas_per_core.is_none() {
-                                    gpu_info.fp16_fmas_per_core =
-                                        Some((model_info.fma_per_engine * 2) as u16);
+                                    gpu_info.fp16_fmas_per_core = Some((model_info.fma_per_engine * 2) as u16);
                                 }
                             }
                         }
                         "Adreno" => {
-                            if let Some(model_info) =
-                                crate::mappings::identify_adreno_gpu(&gpu_data)
-                            {
+                            if let Some(model_info) = crate::mappings::identify_adreno_gpu(&gpu_data) {
                                 gpu_info.architecture = Some(model_info.architecture.to_string());
 
                                 // Override model name from mapping
@@ -324,28 +313,14 @@ fn try_profile(device_path: &str, profile: &crate::profiles::IoctlProfile) -> Op
             }
 
             if let serde_json::Value::Object(ref mut map) = gpu_info.metadata {
-                map.insert(
-                    "total_fp32_fmas".to_string(),
-                    serde_json::Value::Number(total_fp32.into()),
-                );
-                map.insert(
-                    "total_fp16_fmas".to_string(),
-                    serde_json::Value::Number(total_fp16.into()),
-                );
+                map.insert("total_fp32_fmas".to_string(), serde_json::Value::Number(total_fp32.into()));
+                map.insert("total_fp16_fmas".to_string(), serde_json::Value::Number(total_fp16.into()));
 
-                if let (Some(texels_per_core), Some(pixels_per_core)) =
-                    (gpu_info.texels_per_core, gpu_info.pixels_per_core)
-                {
+                if let (Some(texels_per_core), Some(pixels_per_core)) = (gpu_info.texels_per_core, gpu_info.pixels_per_core) {
                     let total_texels = texels_per_core as u32 * cores as u32;
                     let total_pixels = pixels_per_core as u32 * cores as u32;
-                    map.insert(
-                        "total_texels_per_cycle".to_string(),
-                        serde_json::Value::Number(total_texels.into()),
-                    );
-                    map.insert(
-                        "total_pixels_per_cycle".to_string(),
-                        serde_json::Value::Number(total_pixels.into()),
-                    );
+                    map.insert("total_texels_per_cycle".to_string(), serde_json::Value::Number(total_texels.into()));
+                    map.insert("total_pixels_per_cycle".to_string(), serde_json::Value::Number(total_pixels.into()));
                 }
             }
         }
@@ -360,65 +335,43 @@ fn create_gpu_info_from_profile(profile: &crate::profiles::IoctlProfile) -> GpuI
     GpuInfo {
         vendor: profile.vendor.clone(),
         model: profile.model.clone(),
-        architecture: profile
-            .metadata
-            .get("architecture")
+        architecture: profile.metadata.get("architecture")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string()),
         driver_version: None,
         gpu_id: None,
-        cores: profile
-            .metadata
-            .get("core_count")
+        cores: profile.metadata.get("core_count")
             .and_then(|v| v.as_u64())
             .map(|c| c as u8),
         features: Vec::new(),
         detected_ioctls: Vec::new(),
         metadata: profile.metadata.clone(),
         arch_version: None,
-        core_mask: profile
-            .metadata
-            .get("core_mask")
+        core_mask: profile.metadata.get("core_mask")
             .and_then(|v| v.as_u64())
             .map(|c| c as u32),
-        l2_cache_count: profile
-            .metadata
-            .get("l2_cache_count")
+        l2_cache_count: profile.metadata.get("l2_cache_count")
             .and_then(|v| v.as_u64())
             .map(|c| c as u8),
-        l2_cache_size: profile
-            .metadata
-            .get("l2_cache_size")
+        l2_cache_size: profile.metadata.get("l2_cache_size")
             .and_then(|v| v.as_u64())
             .map(|s| s as u32),
-        bus_width: profile
-            .metadata
-            .get("bus_width")
+        bus_width: profile.metadata.get("bus_width")
             .and_then(|v| v.as_u64())
             .map(|w| w as u16),
-        engines_per_core: profile
-            .metadata
-            .get("engines_per_core")
+        engines_per_core: profile.metadata.get("engines_per_core")
             .and_then(|v| v.as_u64())
             .map(|e| e as u8),
-        fp32_fmas_per_core: profile
-            .metadata
-            .get("fp32_fmas_per_core")
+        fp32_fmas_per_core: profile.metadata.get("fp32_fmas_per_core")
             .and_then(|v| v.as_u64())
             .map(|f| f as u16),
-        fp16_fmas_per_core: profile
-            .metadata
-            .get("fp16_fmas_per_core")
+        fp16_fmas_per_core: profile.metadata.get("fp16_fmas_per_core")
             .and_then(|v| v.as_u64())
             .map(|f| f as u16),
-        texels_per_core: profile
-            .metadata
-            .get("texels_per_core")
+        texels_per_core: profile.metadata.get("texels_per_core")
             .and_then(|v| v.as_u64())
             .map(|t| t as u16),
-        pixels_per_core: profile
-            .metadata
-            .get("pixels_per_core")
+        pixels_per_core: profile.metadata.get("pixels_per_core")
             .and_then(|v| v.as_u64())
             .map(|p| p as u16),
     }
