@@ -7,9 +7,19 @@ description = "A unified, lightweight Rust library for querying GPU hardware met
 repository = "https://github.com/devrimdevelopment/iodisco"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
-keywords = ["gpu", "ioctl", "discovery", "mali", "adreno", "android", "linux", "embedded", "hardware"]
+keywords = [
+    "gpu",
+    "ioctl",
+    "discovery",
+    "mali",
+    "adreno",
+    "android",
+    "linux",
+    "embedded",
+    "hardware",
+]
 categories = ["hardware-support", "os", "embedded"]
-rust-version = "1.70"  # Specify minimum Rust version
+rust-version = "1.70" # Specify minimum Rust version
 
 # Add metadata for crates.io
 [package.metadata.docs.rs]
@@ -23,42 +33,48 @@ command = "cargo fmt --all"
 
 [features]
 default = ["mali", "adreno", "discovery"]
-mali = []  # Enable ARM Mali support
-adreno = []  # Enable Qualcomm Adreno support
-discovery = ["rayon"]  # Enable advanced discovery features
-cli = ["clap"]  # Enable CLI tool features
-full = ["mali", "adreno", "discovery", "cli"]  # All features for testing
+mali = []                                     # Enable ARM Mali support
+adreno = []                                   # Enable Qualcomm Adreno support
+discovery = ["rayon"]                         # Enable advanced discovery features
+cli = ["clap"]                                # Enable CLI tool features
+full = ["mali", "adreno", "discovery", "cli"] # All features for testing
 
 # Security features
-safe-scan = []  # Enable additional safety checks during scanning
-sandbox = []    # Enable sandboxed scanning (future feature)
+safe-scan = [] # Enable additional safety checks during scanning
+sandbox = []   # Enable sandboxed scanning (future feature)
 
 # Platform-specific optimizations
-linux = []      # Linux-specific optimizations
-android = []    # Android-specific adaptations
+linux = []   # Linux-specific optimizations
+android = [] # Android-specific adaptations
 
 [dependencies]
-libc = { version = "0.2", default-features = false }  # Disable default features for embedded
+libc = { version = "0.2", default-features = false } # Disable default features for embedded
 serde = { version = "1.0", features = ["derive"], optional = false }
 serde_json = { version = "1.0", optional = false }
 thiserror = "1.0"
-anyhow = { version = "1.0", optional = true }  # Make optional since it's only used in some places
+anyhow = { version = "1.0", optional = true } # Make optional since it's only used in some places
 rayon = { version = "1.8", optional = true }
-clap = { version = "4.0", features = ["derive", "env", "wrap_help"], optional = true }
-chrono = { version = "0.4", features = ["serde"] }  # For timestamping discovery results
+clap = { version = "4.0", features = [
+    "derive",
+    "env",
+    "wrap_help",
+], optional = true }
+chrono = { version = "0.4", features = [
+    "serde",
+] } # For timestamping discovery results
 # Optional dependencies for enhanced functionality
-log = { version = "0.4", optional = true }  # For structured logging
-env_logger = { version = "0.11", optional = true }  # For CLI logging
+log = { version = "0.4", optional = true }         # For structured logging
+env_logger = { version = "0.11", optional = true } # For CLI logging
 indicatif = { version = "0.17", optional = true }  # For progress bars in CLI
-bytes = { version = "1.5", optional = true }  # For efficient byte manipulation
+bytes = { version = "1.5", optional = true }       # For efficient byte manipulation
 
 [dev-dependencies]
 tempfile = "3.10"
-criterion = "0.5"  # For benchmarking
-pretty_assertions = "1.4"  # For better test output
-rstest = "0.18"  # For parameterized tests
-mockall = "0.14.0"  # For mocking in tests
-serial_test = "3.0"  # For serializing tests that access hardware
+criterion = "0.5"         # For benchmarking
+pretty_assertions = "1.4" # For better test output
+rstest = "0.18"           # For parameterized tests
+mockall = "0.14.0"        # For mocking in tests
+serial_test = "3.0"       # For serializing tests that access hardware
 
 [[bin]]
 name = "iodisco-bin"
@@ -101,7 +117,7 @@ path = "examples/debug_profile_match.rs"
 [[example]]
 name = "embedded_minimal"
 path = "examples/embedded_minimal.rs"
-required-features = ["mali"]  # Example for embedded with minimal features
+required-features = ["mali"]          # Example for embedded with minimal features
 
 [[example]]
 name = "android_usage"
@@ -129,15 +145,15 @@ overflow-checks = true
 
 [profile.release]
 opt-level = 3
-lto = "fat"  # Use fat LTO for maximum optimization
-codegen-units = 1  # Single codegen unit for better optimization
-panic = "abort"  # Abort on panic for smaller binaries
-strip = true  # Strip symbols for smaller binaries
+lto = "fat"       # Use fat LTO for maximum optimization
+codegen-units = 1 # Single codegen unit for better optimization
+panic = "abort"   # Abort on panic for smaller binaries
+strip = true      # Strip symbols for smaller binaries
 
 # Profile for embedded (size-optimized)
 [profile.embedded]
 inherits = "release"
-opt-level = "z"  # Optimize for size
+opt-level = "z"      # Optimize for size
 lto = true
 codegen-units = 1
 panic = "abort"
@@ -146,9 +162,9 @@ strip = true
 # Profile for minimal library (no CLI)
 [profile.minimal]
 inherits = "release"
-opt-level = "s"  # Optimize for size
+opt-level = "s"      # Optimize for size
 lto = "thin"
-codegen-units = 16  # Parallel compilation
+codegen-units = 16   # Parallel compilation
 strip = "debuginfo"  # Keep only minimal symbols
 
 # Badges for README (optional but nice)
@@ -158,5 +174,7 @@ github-actions = { repository = "devrimdevelopment/iodisco", workflow = "CI" }
 
 # Workspace configuration (if you plan to expand)
 [workspace]
-members = ["iodisco-bin"]
-resolver = "2"
+members = [
+    "iodisco-bin",
+    "gpuinfo-minimal", # Add this
+]
